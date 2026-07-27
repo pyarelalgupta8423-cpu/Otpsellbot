@@ -887,7 +887,7 @@ contact the <b>Owner/Admin</b> with payment proof.
 🆔 <b>Buyer:</b> <code>{user_id}</code>
 ━━━━━━━━━━━━━━━━━━━━
 """,
-                buttons=[Button.url("🤖 Buy Accounts Here", "http://t.me/Moppytgxbot")],
+                buttons=[Button.url("🤖 Buy Accounts Here", "https://t.me/Abhiidbot")],
                 parse_mode="html"
             )
             success_ui = (
