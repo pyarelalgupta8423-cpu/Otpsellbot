@@ -7,6 +7,7 @@ import re
 import json
 from datetime import datetime
 from pymongo import MongoClient
+from bson import ObjectId  # <--- FIX: Added for ObjectId conversion
 from telethon import TelegramClient, events, Button, errors
 from telethon.tl.functions.channels import GetParticipantRequest
 from dotenv import load_dotenv
@@ -27,6 +28,10 @@ SESSIONS_DIR = os.getenv("SESSIONS_DIR", "MyTelethon")
 SOLD_CHANNEL = os.getenv("SOLD_CHANNEL", "@chfkfhjfod")
 FORCE_CHANNELS_JSON = os.getenv("FORCE_CHANNELS", '[{"username":"@moppybots","link":"https://t.me/moppybots"},{"username":"@chfkfhjfod","link":"https://t.me/chfkfhjfod"}]')
 FORCE_CHANNELS = json.loads(FORCE_CHANNELS_JSON)
+
+# Payment API Key & UPI ID (from environment)
+PAYMENT_API_KEY = os.getenv("PAYMENT_API_KEY", "")
+UPI_ID = os.getenv("UPI_ID", "guptaits@fam")  # fallback to your hardcoded value
 
 os.makedirs(SESSIONS_DIR, exist_ok=True)
 
@@ -615,7 +620,7 @@ Join all channels and press Verify.
                 amount = float(text)
                 user_states[user_id] = {"state": "AWAITING_UTR", "amount": amount}
                 loading = await event.respond("⏳ Generating Payment QR...\nPlease wait...")
-                qr_url = f"https://fampay-w4t8.onrender.com/qr?upi=guptaits@fam&amount={amount}"
+                qr_url = f"https://fampay-w4t8.onrender.com/qr?upi={UPI_ID}&amount={amount}"  # Using env var
                 img = requests.get(qr_url).content
                 with open("deposit_qr.png", "wb") as f:
                     f.write(img)
@@ -649,7 +654,7 @@ send your <b>UTR / Transaction ID</b>.
             amount = state_info["amount"]
             try:
                 checking = await event.respond("⏳ Checking payment...")
-                api_url = f"https://fampay.anujbots.xyz/verify.php?order_id={ref}&api_key=FAM_3454f33714fc1197a3ea5b095cb01cd6f09848e4176b567c"
+                api_url = f"https://fampay.anujbots.xyz/verify.php?order_id={ref}&api_key={PAYMENT_API_KEY}"  # Using env var
                 r = requests.get(api_url, timeout=30)
                 try:
                     data = r.json()
@@ -821,7 +826,8 @@ contact the <b>Owner/Admin</b> with payment proof.
 
         if data.startswith("buy_"):
             acc_id = data.split("_")[1]
-            acc = accounts_coll.find_one({"_id": acc_id})
+            # FIX: Convert acc_id to ObjectId
+            acc = accounts_coll.find_one({"_id": ObjectId(acc_id)})
             if not acc or acc['status'] != 'available':
                 await event.answer("⚠️ This ID was just sold!", alert=True)
                 return
@@ -845,7 +851,8 @@ contact the <b>Owner/Admin</b> with payment proof.
 
         if data.startswith("confirm_"):
             acc_id = data.split("_")[1]
-            acc = accounts_coll.find_one({"_id": acc_id})
+            # FIX: Convert acc_id to ObjectId
+            acc = accounts_coll.find_one({"_id": ObjectId(acc_id)})
             if not acc or acc['status'] != 'available':
                 await event.answer("Error: ID unavailable.")
                 return
@@ -857,7 +864,8 @@ contact the <b>Owner/Admin</b> with payment proof.
             if result.modified_count == 0:
                 await event.answer("Insufficient funds (concurrent).")
                 return
-            accounts_coll.update_one({"_id": acc_id}, {"$set": {"status": "sold", "sold_to": user_id, "sold_at": datetime.now()}})
+            # Update account status to sold (using ObjectId)
+            accounts_coll.update_one({"_id": ObjectId(acc_id)}, {"$set": {"status": "sold", "sold_to": user_id, "sold_at": datetime.now()}})
             await bot.send_message(
                 SOLD_CHANNEL,
                 f"""
