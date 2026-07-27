@@ -7,7 +7,7 @@ import re
 import json
 from datetime import datetime
 from pymongo import MongoClient
-from bson import ObjectId  # <--- FIX: Added for ObjectId conversion
+from bson import ObjectId
 from telethon import TelegramClient, events, Button, errors
 from telethon.tl.functions.channels import GetParticipantRequest
 from dotenv import load_dotenv
@@ -31,7 +31,7 @@ FORCE_CHANNELS = json.loads(FORCE_CHANNELS_JSON)
 
 # Payment API Key & UPI ID (from environment)
 PAYMENT_API_KEY = os.getenv("PAYMENT_API_KEY", "")
-UPI_ID = os.getenv("UPI_ID", "guptaits@fam")  # fallback to your hardcoded value
+UPI_ID = os.getenv("UPI_ID", "guptaits@fam")
 
 os.makedirs(SESSIONS_DIR, exist_ok=True)
 
@@ -44,17 +44,16 @@ logger = logging.getLogger(__name__)
 
 # ---------- MONGODB ----------
 mongo_client = MongoClient(MONGO_URI)
-db = mongo_client["referral_bot"]  # same DB as first bot
+db = mongo_client["referral_bot"]
 
-users_coll = db["users"]                 # shared users
-accounts_coll = db["store_accounts"]     # accounts for sale
-deposits_coll = db["store_deposits"]     # deposit records
-settings_coll = db["store_settings"]     # bot settings
-redeem_codes_coll = db["redeem_codes"]   # shared with first bot
+users_coll = db["users"]
+accounts_coll = db["store_accounts"]
+deposits_coll = db["store_deposits"]
+settings_coll = db["store_settings"]
+redeem_codes_coll = db["redeem_codes"]
 
-# indexes
 accounts_coll.create_index("phone", unique=True)
-accounts_coll.create_index("category")   # for fast lookup
+accounts_coll.create_index("category")
 redeem_codes_coll.create_index("code", unique=True)
 
 # ---------- HELPERS ----------
@@ -169,7 +168,7 @@ async def process_redeem_code(user_id, code):
     asyncio.create_task(start_otp_forwarding(account['phone'], user_id))
     return True, account
 
-# ---------- OTP FORWARDING ----------
+# ---------- OTP FORWARDING (FIXED) ----------
 async def start_otp_forwarding(phone, user_id):
     if phone in active_otp_clients:
         return
@@ -177,13 +176,25 @@ async def start_otp_forwarding(phone, user_id):
     client = TelegramClient(session_file, API_ID, API_HASH)
     await client.connect()
     if not await client.is_user_authorized():
+        logger.warning(f"Session not authorized for {phone}")
         return
     active_otp_clients[phone] = client
+    logger.info(f"OTP forwarding started for {phone}")
 
     @client.on(events.NewMessage(from_users=777000))
     async def otp_handler(event):
         text = event.raw_text
-        otp = "".join(re.findall(r"\d+", text))
+        
+        # Directly extract OTP from "Login code: XXXXX" format
+        otp_match = re.search(r'Login code:\s*(\d+)', text)
+        
+        if otp_match:
+            otp = otp_match.group(1)
+        else:
+            # Fallback: extract any 5-6 digit number
+            otp_match = re.search(r'\b(\d{5,6})\b', text)
+            otp = otp_match.group(1) if otp_match else "N/A"
+        
         account = accounts_coll.find_one({"phone": phone})
         password = account.get("password", "N/A") if account else "N/A"
         otp_msg = (
@@ -197,7 +208,8 @@ async def start_otp_forwarding(phone, user_id):
         await bot.send_message(user_id, otp_msg, parse_mode="html")
 
     try:
-        await asyncio.sleep(900)  # keep alive 15 min
+        while True:
+            await asyncio.sleep(60)  # Keep alive forever
     finally:
         await client.disconnect()
         active_otp_clients.pop(phone, None)
@@ -274,7 +286,7 @@ Join all channels and press Verify.
         else:
             await event.respond(welcome_msg, buttons=get_user_keyboard(), parse_mode='html')
 
-    # ---------- MESSAGE HANDLER (all states + commands) ----------
+    # ---------- MESSAGE HANDLER ----------
     @bot.on(events.NewMessage)
     async def message_handler(event):
         user_id = event.sender_id
@@ -620,7 +632,7 @@ Join all channels and press Verify.
                 amount = float(text)
                 user_states[user_id] = {"state": "AWAITING_UTR", "amount": amount}
                 loading = await event.respond("⏳ Generating Payment QR...\nPlease wait...")
-                qr_url = f"https://fampay-w4t8.onrender.com/qr?upi={UPI_ID}&amount={amount}"  # Using env var
+                qr_url = f"https://fampay-w4t8.onrender.com/qr?upi={UPI_ID}&amount={amount}"
                 img = requests.get(qr_url).content
                 with open("deposit_qr.png", "wb") as f:
                     f.write(img)
@@ -654,7 +666,7 @@ send your <b>UTR / Transaction ID</b>.
             amount = state_info["amount"]
             try:
                 checking = await event.respond("⏳ Checking payment...")
-                api_url = f"https://fampay.anujbots.xyz/verify.php?order_id={ref}&api_key={PAYMENT_API_KEY}"  # Using env var
+                api_url = f"https://fampay.anujbots.xyz/verify.php?order_id={ref}&api_key={PAYMENT_API_KEY}"
                 r = requests.get(api_url, timeout=30)
                 try:
                     data = r.json()
@@ -826,7 +838,6 @@ contact the <b>Owner/Admin</b> with payment proof.
 
         if data.startswith("buy_"):
             acc_id = data.split("_")[1]
-            # FIX: Convert acc_id to ObjectId
             acc = accounts_coll.find_one({"_id": ObjectId(acc_id)})
             if not acc or acc['status'] != 'available':
                 await event.answer("⚠️ This ID was just sold!", alert=True)
@@ -851,7 +862,6 @@ contact the <b>Owner/Admin</b> with payment proof.
 
         if data.startswith("confirm_"):
             acc_id = data.split("_")[1]
-            # FIX: Convert acc_id to ObjectId
             acc = accounts_coll.find_one({"_id": ObjectId(acc_id)})
             if not acc or acc['status'] != 'available':
                 await event.answer("Error: ID unavailable.")
@@ -864,7 +874,6 @@ contact the <b>Owner/Admin</b> with payment proof.
             if result.modified_count == 0:
                 await event.answer("Insufficient funds (concurrent).")
                 return
-            # Update account status to sold (using ObjectId)
             accounts_coll.update_one({"_id": ObjectId(acc_id)}, {"$set": {"status": "sold", "sold_to": user_id, "sold_at": datetime.now()}})
             await bot.send_message(
                 SOLD_CHANNEL,
@@ -921,10 +930,7 @@ def run_http():
 
 # ---------- ENTRY POINT ----------
 if __name__ == "__main__":
-    # Start HTTP server in a background thread
     Thread(target=run_http, daemon=True).start()
-
-    # Now run the Telegram bot
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
