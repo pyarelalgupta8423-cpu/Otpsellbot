@@ -161,7 +161,7 @@ async def process_redeem_code(user_id, code):
 🧾 <b>Code:</b> <code>{code}</code>
 ━━━━━━━━━━━━━━━━━━━━
 """,
-        buttons=[Button.url("🤖 Buy Accounts Here", "http://t.me/Moppytgxbot")],
+        buttons=[Button.url("🤖 Buy Accounts Here", "http://t.me/Abhiidbot")],
         parse_mode="html"
     )
 
