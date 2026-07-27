@@ -649,7 +649,7 @@ send your <b>UTR / Transaction ID</b>.
             amount = state_info["amount"]
             try:
                 checking = await event.respond("⏳ Checking payment...")
-                api_url = f"https://fampay.anujbots.xyz/verify.php?order_id={ref}&FAM_3454f33714fc1197a3ea5b095cb01cd6f09848e4176b567c="
+                api_url = f"https://fampay.anujbots.xyz/verify.php?order_id={ref}&api_key=FAM_3454f33714fc1197a3ea5b095cb01cd6f09848e4176b567c"
                 r = requests.get(api_url, timeout=30)
                 try:
                     data = r.json()
@@ -724,7 +724,7 @@ contact the <b>Owner/Admin</b> with payment proof.
             return
 
         elif text == "🆘 Support":
-            await event.respond("🆘 Support :\nhttps://t.me/+rkq_o_ToPggwNTA1")
+            await event.respond("🆘 Support :\nhttps://t.me/CrazyAbhii")
             return
 
         elif text == "🛒 Buy ID":
