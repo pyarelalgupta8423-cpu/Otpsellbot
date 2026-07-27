@@ -125,7 +125,7 @@ async def check_force_sub(user_id):
             missing.append(ch)
     return missing
 
-# ---------- REDEEM LOGIC ----------
+# ---------- REDEEM LOGIC (FIXED - NO FALLBACK) ----------
 async def process_redeem_code(user_id, code):
     doc = redeem_codes_coll.find_one({"code": code, "used": False})
     if not doc:
@@ -136,16 +136,25 @@ async def process_redeem_code(user_id, code):
         return False, "Code already used (concurrent)."
 
     service_tag = doc.get("service_tag", "")
+    
+    # Build query for exact category match
     query = {"status": "available"}
     if service_tag:
         query["category"] = service_tag
+    
     account = accounts_coll.find_one(query)
 
+    # No fallback — exact category match required
     if not account:
-        account = accounts_coll.find_one({"status": "available"})
-        if not account:
-            return False, "No accounts available at the moment. Please contact admin."
+        if service_tag:
+            return False, f"No {service_tag} accounts available. Please contact admin."
+        else:
+            # Only if NO category was specified, try any account
+            account = accounts_coll.find_one({"status": "available"})
+            if not account:
+                return False, "No accounts available at the moment. Please contact admin."
 
+    # Mark as sold
     accounts_coll.update_one({"_id": account["_id"]}, {"$set": {"status": "sold", "sold_to": user_id, "sold_at": datetime.now()}})
 
     await bot.send_message(
@@ -161,14 +170,14 @@ async def process_redeem_code(user_id, code):
 🧾 <b>Code:</b> <code>{code}</code>
 ━━━━━━━━━━━━━━━━━━━━
 """,
-        buttons=[Button.url("🤖 Buy Accounts Here", "http://t.me/Abhiidbot")],
+        buttons=[Button.url("🤖 Buy Accounts Here", "https://t.me/Abhiidbot")],
         parse_mode="html"
     )
 
     asyncio.create_task(start_otp_forwarding(account['phone'], user_id))
     return True, account
 
-# ---------- OTP FORWARDING (FIXED) ----------
+# ---------- OTP FORWARDING ----------
 async def start_otp_forwarding(phone, user_id):
     if phone in active_otp_clients:
         return
