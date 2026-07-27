@@ -234,7 +234,7 @@ async def main():
             if success:
                 await event.respond(
                     f"🎉 <b>Redemption successful!</b>\n"
-                    f"📱 Account: <code>{mask_phone(result['phone'])}</code>\n"
+                    f"📱 Account: <code>{result['phone']}</code>\n"
                     f"🌍 Country: <code>{result['country']}</code>\n"
                     f"🏷️ Category: <code>{result.get('category', 'N/A')}</code>\n"
                     f"🔑 Password: <code>{result.get('password', 'N/A')}</code>\n\n"
