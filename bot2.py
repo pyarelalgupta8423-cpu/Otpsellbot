@@ -11,6 +11,10 @@ from telethon import TelegramClient, events, Button, errors
 from telethon.tl.functions.channels import GetParticipantRequest
 from dotenv import load_dotenv
 
+# ---------- ADDED FOR RENDER PORT BINDING ----------
+from flask import Flask
+from threading import Thread
+
 load_dotenv()
 
 # ---------- CONFIG ----------
@@ -896,8 +900,23 @@ contact the <b>Owner/Admin</b> with payment proof.
     # ---------- RUN ----------
     await bot.run_until_disconnected()
 
+# ---------- DUMMY HTTP SERVER (keeps Render Web Service alive) ----------
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def health():
+    return "Bot is running", 200
+
+def run_http():
+    port = int(os.environ.get('PORT', 10000))
+    flask_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+
 # ---------- ENTRY POINT ----------
 if __name__ == "__main__":
+    # Start HTTP server in a background thread
+    Thread(target=run_http, daemon=True).start()
+
+    # Now run the Telegram bot
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
