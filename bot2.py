@@ -615,7 +615,7 @@ Join all channels and press Verify.
                 amount = float(text)
                 user_states[user_id] = {"state": "AWAITING_UTR", "amount": amount}
                 loading = await event.respond("⏳ Generating Payment QR...\nPlease wait...")
-                qr_url = f"https://fampay-w4t8.onrender.com/qr?upi=yawar1@fam&amount={amount}"
+                qr_url = f"https://fampay-w4t8.onrender.com/qr?upi=guptaits@fam&amount={amount}"
                 img = requests.get(qr_url).content
                 with open("deposit_qr.png", "wb") as f:
                     f.write(img)
@@ -649,7 +649,7 @@ send your <b>UTR / Transaction ID</b>.
             amount = state_info["amount"]
             try:
                 checking = await event.respond("⏳ Checking payment...")
-                api_url = f"https://fampay.anujbots.xyz/verify.php?order_id={ref}&api_key="
+                api_url = f"https://fampay.anujbots.xyz/verify.php?order_id={ref}&FAM_3454f33714fc1197a3ea5b095cb01cd6f09848e4176b567c="
                 r = requests.get(api_url, timeout=30)
                 try:
                     data = r.json()
